@@ -79,6 +79,16 @@ var ParentDir = &Key{
 	Templated: true,
 }
 
+// PostCreate is a shell command run in every new worktree right after it is
+// created (via `sh -c`, cwd = the worktree). Unset or empty means off. Not
+// templated: `$` and `${...}` belong to the shell and pass through untouched.
+var PostCreate = &Key{
+	Name:    "postCreate",
+	Type:    TypeString,
+	Default: "",
+	Doc:     "Shell command run in each new worktree (sh -c, cwd = worktree). Empty = off.",
+}
+
 // Plain mirrors the --plain flag — useful for users who never want
 // colour. NO_COLOR is honored independently.
 var Plain = &Key{
@@ -114,7 +124,7 @@ func ValidateFD(value string) error {
 }
 
 // All is the registry. Keep alphabetical for stable help output.
-var All = []*Key{FD, ParentDir, Plain}
+var All = []*Key{FD, ParentDir, PostCreate, Plain}
 
 // Find returns the Key matching name (case-insensitive, with or without
 // the "wt." prefix). Falls back to nil if unknown — callers should
