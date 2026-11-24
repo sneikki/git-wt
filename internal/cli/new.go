@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -11,6 +12,7 @@ import (
 var (
 	newParentDir      string
 	newFromRef        string
+	newNoFetch        bool
 	newNoCopy         bool
 	newCopyFileConfig string
 )
@@ -18,11 +20,14 @@ var (
 var newCmd = &cobra.Command{
 	Use:   "new <branch>",
 	Short: "Create a new worktree with branch <branch>",
-	Long: "Create a new worktree at <repo>-trees/<branch>/, branching from the\n" +
-		"current HEAD (or --from <ref>). After creation, copies project-local\n" +
-		"files according to <repo>/.git-wt-copy-files (override path with\n" +
-		"--copy-file-config). Built-in defaults are used when no spec file\n" +
-		"is present. Skip the copy entirely with --no-copy.",
+	Long: "Create a new worktree at <repo>/.worktrees/<branch>/ (or --parent-dir).\n" +
+		"By default, fetches origin and branches from its default branch as it\n" +
+		"is now. --from <ref> picks another start point (a <remote>/<x> ref\n" +
+		"fetches that remote first). --no-fetch skips the fetch. The new branch\n" +
+		"has no upstream. Then copies project-local files according to\n" +
+		"<repo>/.git-wt-copy-files (override path with --copy-file-config).\n" +
+		"Built-in defaults are used when no spec file is present. Skip the copy\n" +
+		"entirely with --no-copy.",
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
@@ -44,6 +49,10 @@ var newCmd = &cobra.Command{
 			return fmt.Errorf("branch %q already exists", branch)
 		}
 
+		base, err := resolveNewBase(ctx, newFromRef, newNoFetch)
+		if err != nil {
+			return err
+		}
 		parent, err := resolveParentDir(ctx, repo.MainRoot, newParentDir)
 		if err != nil {
 			return err
@@ -53,9 +62,10 @@ var newCmd = &cobra.Command{
 			return err
 		}
 
-		if err := createWorktree(ctx, path, branch, newFromRef); err != nil {
+		if err := createWorktree(ctx, path, branch, base.Ref); err != nil {
 			return err
 		}
+		fmt.Fprintln(os.Stderr, describeBase(base))
 		return finalizeWorktreeSite(ctx, repo, path, parent, newNoCopy, newCopyFileConfig)
 	},
 }
@@ -63,7 +73,8 @@ var newCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(newCmd)
 	newCmd.Flags().StringVarP(&newParentDir, "parent-dir", "p", "", "parent directory for the worktree (default: <repo>/.worktrees/)")
-	newCmd.Flags().StringVar(&newFromRef, "from", "", "ref to branch from (default: current HEAD)")
+	newCmd.Flags().StringVar(&newFromRef, "from", "", "start point (default: origin's default branch, fetched first; HEAD without a remote)")
+	newCmd.Flags().BoolVar(&newNoFetch, "no-fetch", false, "branch from the refs as they are, without fetching the remote")
 	newCmd.Flags().BoolVar(&newNoCopy, "no-copy", false, "skip copying project config files")
 	newCmd.Flags().StringVar(&newCopyFileConfig, "copy-file-config", "", "path to copy spec (default: <repo>/.git-wt-copy-files)")
 }
