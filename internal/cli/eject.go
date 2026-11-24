@@ -185,7 +185,6 @@ func executeEject(ctx context.Context, p *ejectPlan) (err error) {
 		rollback()
 		return fmt.Errorf("create worktree: %w", cErr)
 	}
-
 	// Past the rollback territory: the worktree is created, branch is
 	// in it, original branch's stash (if any) needs to be restored there.
 	if stashRef != "" {
@@ -204,6 +203,11 @@ func executeEject(ctx context.Context, p *ejectPlan) (err error) {
 		}
 	}
 
+	// eject does not go through finalizeWorktreeSite. The hook runs only now,
+	// after the stash is restored: a hook that writes a dirty or untracked
+	// file must not make the apply refuse, and a failing hook must not strand
+	// changes in the stash.
+	runPostCreateHook(ctx, p.repo.MainRoot, p.path)
 	warnIfParentNotIgnored(ctx, p.repo.MainRoot, p.parent)
 	return emitTarget(p.path)
 }
