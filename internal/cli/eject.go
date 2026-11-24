@@ -185,6 +185,9 @@ func executeEject(ctx context.Context, p *ejectPlan) (err error) {
 		rollback()
 		return fmt.Errorf("create worktree: %w", cErr)
 	}
+	// eject does not go through finalizeWorktreeSite, so the post-create hook
+	// runs here, before the stash is restored into the new worktree.
+	runPostCreateHook(ctx, p.repo.MainRoot, p.path)
 
 	// Past the rollback territory: the worktree is created, branch is
 	// in it, original branch's stash (if any) needs to be restored there.

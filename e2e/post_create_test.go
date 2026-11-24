@@ -138,3 +138,17 @@ func TestPostCreate_WrapperFDStaysOffHook(t *testing.T) {
 		t.Errorf("fd3 = %q, want only the path", res.FD3)
 	}
 }
+
+// TestPostCreate_RunsOnEject: eject builds its worktree outside
+// finalizeWorktreeSite, so it needs the hook too.
+func TestPostCreate_RunsOnEject(t *testing.T) {
+	repo := newRepo(t)
+	setPostCreate(t, repo, `touch ran.marker`)
+	mustGit(t, repo, "checkout", "-q", "-b", "feat-eject-hook")
+
+	res := runWT(t, repo, "eject", "--non-interactive")
+	if res.ExitCode != 0 {
+		t.Fatalf("eject exit %d: %s", res.ExitCode, res.Stderr)
+	}
+	mustExist(t, filepath.Join(repo, ".worktrees", "feat-eject-hook", "ran.marker"))
+}
