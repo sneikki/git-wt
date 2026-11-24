@@ -14,7 +14,7 @@ func TestConfig_ListShowsAllRegisteredKeys(t *testing.T) {
 	if res.ExitCode != 0 {
 		t.Fatalf("config exit %d: %s", res.ExitCode, res.Stderr)
 	}
-	for _, want := range []string{"wt.fd", "wt.parentDir", "wt.plain"} {
+	for _, want := range []string{"wt.fd", "wt.parentDir", "wt.postCreate", "wt.plain"} {
 		if !strings.Contains(res.Stdout, want) {
 			t.Errorf("list output missing %s; got:\n%s", want, res.Stdout)
 		}
