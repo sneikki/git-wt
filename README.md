@@ -185,6 +185,7 @@ git-wt config --unset parentDir                  # remove from --local
 | `wt.parentDir` | string | `${repoPath}/.worktrees` | Parent directory for new worktrees. Supports `${...}` substitution. |
 | `wt.plain` | bool | `false` | Always run with `--plain` (also honors `NO_COLOR`). |
 | `wt.fd` | int | `3` | Default fd for the wrapper protocol (`3-9`). |
+| `wt.postCreate` | string | empty (off) | Shell command run in each new worktree after `new`, `add` and `eject`. Not templated. See below. |
 
 **Template variables** (path-shaped values only):
 
@@ -209,6 +210,26 @@ adapts per repo**. Set
 `git config --global wt.parentDir '${repoParent}/${repo}.worktrees'`
 once and every repo you work in gets its worktrees in a sibling
 directory like `~/code/myrepo.worktrees/`.
+
+**Post-create command** (`wt.postCreate`). Runs `sh -c` in each new
+worktree right after it is created, for setup such as dependency install
+or a `node_modules` symlink:
+
+```bash
+git-wt config postCreate 'bun install'
+git-wt config postCreate 'ln -s "$GIT_WT_MAIN_ROOT/node_modules" node_modules'
+```
+
+- Environment adds `GIT_WT_MAIN_ROOT` (main checkout) and `GIT_WT_WORKTREE`
+  (the new worktree). The command is not templated, so `$` passes through.
+- Its stdout and stderr go to git-wt's stderr; stdout and the wrapper fd
+  carry only the path. The command does not inherit the wrapper fd.
+- A failure prints a warning with the exit status. The worktree stays and
+  the command exits 0. `eject` restores your stash after this step, so an
+  abort here would strand your changes.
+- Read from git config only, never from a tracked file, so a cloned repo
+  cannot make git-wt run commands. Set it per clone (`--local`) or per user
+  (`--global`). Runs on POSIX systems only (it needs `sh`).
 
 ### Shell-wrapper protocol
 

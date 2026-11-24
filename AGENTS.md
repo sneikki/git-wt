@@ -94,6 +94,16 @@ reads the corresponding key. `--parent-dir` is checked the same way in
 `${repoParent}`, `${home}`) is applied by `wt.ResolveParentDir` whenever
 the value is non-empty, so values from CLI or config can both use it.
 
+## Config: `wt.postCreate`
+
+Shell command run as `sh -c` in each new worktree (`new`, `add`, and `eject`
+via `runPostCreateHook` in `internal/cli/post_create.go`). Called from
+`finalizeWorktreeSite`, and directly from `executeEject`, before eject's stash
+restore. Not templated. Read from git config only, never from a tracked file,
+so a clone cannot run commands. stdout and stderr go to git-wt's stderr, and
+the wrapper fd is close-on-exec for the child. A failure is a warning, never
+fatal. Env adds `GIT_WT_MAIN_ROOT` and `GIT_WT_WORKTREE`.
+
 ## Build / test
 
 ```bash
