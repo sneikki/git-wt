@@ -15,10 +15,12 @@ func TestWithPostCreateEnv_SetsBothVarsOnce(t *testing.T) {
 	}
 }
 
-func TestWithPostCreateEnv_DoesNotTouchInput(t *testing.T) {
-	base := []string{"PATH=/bin"}
+// The input carries both names, so an in-place filter would change it.
+func TestWithPostCreateEnv_DoesNotMutateInput(t *testing.T) {
+	base := []string{"GIT_WT_MAIN_ROOT=/old/main", "PATH=/bin", "GIT_WT_WORKTREE=/old/wt"}
+	before := slices.Clone(base)
 	_ = withPostCreateEnv(base, "/repo", "/wt")
-	if len(base) != 1 {
-		t.Errorf("input slice grew to %d entries", len(base))
+	if !slices.Equal(base, before) {
+		t.Errorf("input changed: %q, was %q", base, before)
 	}
 }
