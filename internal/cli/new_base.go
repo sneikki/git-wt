@@ -28,12 +28,13 @@ func resolveNewBase(ctx context.Context, from string, noFetch bool) (newBase, er
 		return newBase{}, err
 	}
 	remote := pickRemote(from, remotes)
-	if remote != "" && !noFetch {
+	fetched := remote != "" && !noFetch
+	if fetched {
 		if err := fetchRemote(ctx, remote); err != nil {
 			return newBase{}, err
 		}
 	}
-	ref, err := baseRef(ctx, from, remote)
+	ref, err := baseRef(ctx, from, remote, fetched)
 	if err != nil {
 		return newBase{}, err
 	}
@@ -61,15 +62,16 @@ func pickRemote(from string, remotes []string) string {
 }
 
 // baseRef is --from when given; otherwise origin's default branch when a
-// remote is in play (pickRemote only yields origin for an empty from), else HEAD.
-func baseRef(ctx context.Context, from, remote string) (string, error) {
+// remote is in play (pickRemote only yields origin for an empty from), else
+// HEAD. fetched says the remote was just fetched, so origin/HEAD is refreshed.
+func baseRef(ctx context.Context, from, remote string, fetched bool) (string, error) {
 	switch {
 	case from != "":
 		return from, nil
 	case remote == "":
 		return "HEAD", nil
 	default:
-		return originDefaultRef(ctx)
+		return originDefaultRef(ctx, fetched)
 	}
 }
 
@@ -93,18 +95,19 @@ func fetchRemote(ctx context.Context, remote string) error {
 	return nil
 }
 
-// originDefaultRef returns origin's default branch as "origin/<name>". An
-// unset origin/HEAD is set once from the remote; still unset is an error.
-func originDefaultRef(ctx context.Context) (string, error) {
-	if ref, err := symbolicOriginHead(ctx); err == nil {
-		return ref, nil
-	}
-	if _, err := git.Run(ctx, "remote", "set-head", "origin", "--auto"); err != nil {
-		return "", fmt.Errorf("origin's default branch is unknown and set-head failed: %w (or pass --from <ref>)", err)
+// originDefaultRef returns origin's default branch as "origin/<name>". After
+// a fetch (refresh) origin/HEAD is re-read from the remote, so a renamed
+// default is followed; a failed refresh is an error. Without a fetch the
+// stored origin/HEAD is used, and unset is an error that never contacts origin.
+func originDefaultRef(ctx context.Context, refresh bool) (string, error) {
+	if refresh {
+		if _, err := git.Run(ctx, "remote", "set-head", "origin", "--auto"); err != nil {
+			return "", fmt.Errorf("refresh origin/HEAD failed: %w (or pass --from <ref>)", err)
+		}
 	}
 	ref, err := symbolicOriginHead(ctx)
 	if err != nil {
-		return "", errors.New("origin's default branch is unknown (pass --from <ref>)")
+		return "", errors.New("origin/HEAD is not set (pass --from <ref>, or drop --no-fetch)")
 	}
 	return ref, nil
 }

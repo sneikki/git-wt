@@ -134,6 +134,46 @@ func TestNew_UnreachableOriginFailsNamingNoFetch(t *testing.T) {
 		t.Errorf("stderr should name --no-fetch, got: %s", res.Stderr)
 	}
 	mustNotExist(t, filepath.Join(clone, ".worktrees", "feat"))
+	if !gitFails(t, clone, "rev-parse", "--verify", "-q", "feat") {
+		t.Error("branch feat was created despite the failed fetch")
+	}
+}
+
+func TestNew_NoFetchUnsetOriginHeadFailsWithoutNetwork(t *testing.T) {
+	clone, _ := cloneOfOrigin(t)
+	mustGit(t, clone, "remote", "set-head", "origin", "-d")
+	mustGit(t, clone, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "gone.git"))
+
+	res := runWT(t, clone, "new", "feat", "--no-fetch", "--non-interactive", "--no-copy")
+	if res.ExitCode == 0 {
+		t.Fatal("new succeeded with origin/HEAD unset under --no-fetch")
+	}
+	if !strings.Contains(res.Stderr, "origin/HEAD is not set") {
+		t.Errorf("stderr should say origin/HEAD is not set (no set-head attempt), got: %s", res.Stderr)
+	}
+	if !gitFails(t, clone, "rev-parse", "--verify", "-q", "feat") {
+		t.Error("branch feat was created")
+	}
+}
+
+func TestNew_FollowsRenamedOriginDefault(t *testing.T) {
+	clone, seed := cloneOfOrigin(t)
+	origin := filepath.Join(filepath.Dir(clone), "origin.git")
+	tip := commitFile(t, seed, "NEXT", "next\n", "advance")
+	mustGit(t, seed, "push", "-q", "origin", "main:trunk")
+	mustGit(t, origin, "symbolic-ref", "HEAD", "refs/heads/trunk")
+	mustGit(t, seed, "push", "-q", "origin", "--delete", "main")
+
+	res := runWT(t, clone, "new", "feat", "--non-interactive", "--no-copy")
+	if res.ExitCode != 0 {
+		t.Fatalf("new exit %d, stderr: %s", res.ExitCode, res.Stderr)
+	}
+	if got := mustGit(t, filepath.Join(clone, ".worktrees", "feat"), "rev-parse", "HEAD"); got != tip {
+		t.Errorf("worktree HEAD = %s, want renamed default tip %s", got, tip)
+	}
+	if !strings.Contains(res.Stderr, "branched from origin/trunk at "+tip[:7]) {
+		t.Errorf("stderr should name origin/trunk, got: %s", res.Stderr)
+	}
 }
 
 func TestNew_SetsOriginHeadWhenUnset(t *testing.T) {
