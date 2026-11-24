@@ -112,10 +112,12 @@ func finalizeWorktreeSite(ctx context.Context, repo *wt.RepoInfo, path, parent s
 	return emitTarget(path)
 }
 
-// createWorktree runs `git worktree add -b <branch> [<fromRef>]` — used by
-// the `new` command to materialise a fresh branch into a new worktree.
+// createWorktree runs `git worktree add --no-track -b <branch> [<fromRef>]` —
+// used by the `new` command to materialise a fresh branch into a new
+// worktree. --no-track keeps the start point from becoming the upstream, so
+// a bare `git push` never aims at the base branch.
 func createWorktree(ctx context.Context, path, branch, fromRef string) error {
-	args := []string{"worktree", "add", path, "-b", branch}
+	args := []string{"worktree", "add", "--no-track", path, "-b", branch}
 	if fromRef != "" {
 		args = append(args, fromRef)
 	}
