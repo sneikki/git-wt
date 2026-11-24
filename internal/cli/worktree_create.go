@@ -89,10 +89,11 @@ func prepareWorktreeSite(parent, leaf, noun string) (string, error) {
 	return path, nil
 }
 
-// finalizeWorktreeSite runs the post-create tail shared by new and add:
-// optionally copy project config files, warn when parent isn't gitignored,
-// then emit the destination path via the wrapper protocol. A copy-config
-// failure is non-fatal (logged as a warning); the worktree still ships.
+// finalizeWorktreeSite runs the post-create tail shared by new, add and eject:
+// optionally copy project config files, run the wt.postCreate command, warn
+// when parent isn't gitignored, then emit the destination path via the
+// wrapper protocol. A copy-config or postCreate failure is non-fatal (logged
+// as a warning); the worktree still ships.
 func finalizeWorktreeSite(ctx context.Context, repo *wt.RepoInfo, path, parent string, noCopy bool, copyFileConfig string) error {
 	if !noCopy {
 		specPath := copyFileConfig
@@ -106,6 +107,7 @@ func finalizeWorktreeSite(ctx context.Context, repo *wt.RepoInfo, path, parent s
 			fmt.Fprintf(os.Stderr, "warning: copy configs: %v\n", err)
 		}
 	}
+	runPostCreateHook(ctx, repo.MainRoot, path)
 	warnIfParentNotIgnored(ctx, repo.MainRoot, parent)
 	return emitTarget(path)
 }

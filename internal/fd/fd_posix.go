@@ -42,3 +42,10 @@ func fcntlGetFlags(fd int) (int, error) {
 	}
 	return int(r), nil
 }
+
+// CloseOnExec marks fd N close-on-exec, so a child process git-wt starts
+// does not inherit the wrapper's capture pipe. An fd that is not open has
+// nothing to protect, so there is nothing to report.
+func CloseOnExec(n int) {
+	syscall.CloseOnExec(n)
+}

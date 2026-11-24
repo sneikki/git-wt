@@ -25,3 +25,6 @@ func Open(_ int) (*os.File, bool) { return nil, false }
 
 // Available always returns false on Windows.
 func Available(_ int) bool { return false }
+
+// CloseOnExec is a no-op on Windows: the wrapper fd is never open there.
+func CloseOnExec(_ int) {}
