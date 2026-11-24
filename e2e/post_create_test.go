@@ -152,3 +152,63 @@ func TestPostCreate_RunsOnEject(t *testing.T) {
 	}
 	mustExist(t, filepath.Join(repo, ".worktrees", "feat-eject-hook", "ran.marker"))
 }
+
+// dirtyEjectRepo puts a branch with a modified tracked file and an untracked
+// file in the main tree, ready to eject.
+func dirtyEjectRepo(t *testing.T, branch string) string {
+	t.Helper()
+	repo := newRepo(t)
+	mustGit(t, repo, "checkout", "-q", "-b", branch)
+	mustWrite(t, filepath.Join(repo, "README"), "v2\n")
+	mustWrite(t, filepath.Join(repo, "u.txt"), "user untracked\n")
+	return repo
+}
+
+// TestPostCreate_EjectHookRunsAfterStashRestore: the hook writes the same
+// dirty and untracked files the user has. It must see them restored first,
+// so its appends land after the user's content and nothing stays stashed.
+func TestPostCreate_EjectHookRunsAfterStashRestore(t *testing.T) {
+	repo := dirtyEjectRepo(t, "feat-eject-order")
+	setPostCreate(t, repo, `echo hook >> README; echo hook >> u.txt`)
+
+	res := runWT(t, repo, "eject", "--non-interactive")
+	if res.ExitCode != 0 {
+		t.Fatalf("eject exit %d: %s", res.ExitCode, res.Stderr)
+	}
+	wtDir := filepath.Join(repo, ".worktrees", "feat-eject-order")
+	assertFile(t, filepath.Join(wtDir, "README"), "v2\nhook\n")
+	assertFile(t, filepath.Join(wtDir, "u.txt"), "user untracked\nhook\n")
+	if got := mustGit(t, repo, "stash", "list"); got != "" {
+		t.Errorf("stash not drained, still holds: %q", got)
+	}
+}
+
+// TestPostCreate_EjectFailingHookKeepsChanges: a failing hook after a dirty
+// eject leaves the user's changes in the new worktree, exits 0 and warns.
+func TestPostCreate_EjectFailingHookKeepsChanges(t *testing.T) {
+	repo := dirtyEjectRepo(t, "feat-eject-fail")
+	setPostCreate(t, repo, `exit 3`)
+
+	res := runWT(t, repo, "eject", "--non-interactive")
+	if res.ExitCode != 0 {
+		t.Fatalf("eject exit %d, want 0: %s", res.ExitCode, res.Stderr)
+	}
+	wtDir := filepath.Join(repo, ".worktrees", "feat-eject-fail")
+	assertFile(t, filepath.Join(wtDir, "README"), "v2\n")
+	assertFile(t, filepath.Join(wtDir, "u.txt"), "user untracked\n")
+	if !strings.Contains(res.Stderr, "warning") || !strings.Contains(res.Stderr, "exit status 3") {
+		t.Errorf("stderr lacks warning with exit status: %q", res.Stderr)
+	}
+}
+
+// assertFile fails unless the file at path holds exactly want.
+func assertFile(t *testing.T, path, want string) {
+	t.Helper()
+	got, err := readFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if got != want {
+		t.Errorf("%s = %q, want %q", filepath.Base(path), got, want)
+	}
+}
