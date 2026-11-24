@@ -225,8 +225,9 @@ git-wt config postCreate 'ln -s "$GIT_WT_MAIN_ROOT/node_modules" node_modules'
 - Its stdout and stderr go to git-wt's stderr; stdout and the wrapper fd
   carry only the path. The command does not inherit the wrapper fd.
 - A failure prints a warning with the exit status. The worktree stays and
-  the command exits 0. `eject` restores your stash after this step, so an
-  abort here would strand your changes.
+  the command exits 0. In `eject` the command runs after your stash is
+  restored into the new worktree, so a failure or a hook that rewrites your
+  files cannot strand your changes in the stash.
 - Read from git config only, never from a tracked file, so a cloned repo
   cannot make git-wt run commands. Set it per clone (`--local`) or per user
   (`--global`). Runs on POSIX systems only (it needs `sh`).
