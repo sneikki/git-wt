@@ -48,7 +48,7 @@ func doRun(t *testing.T, cwd string, withFD bool, args ...string) runResult {
 	t.Helper()
 	cmd := exec.Command(binPath, args...)
 	cmd.Dir = cwd
-	cmd.Env = hermeticEnv()
+	cmd.Env = hermeticEnv(t)
 	cmd.Stdin = nil // ensures non-interactive auto-detection
 
 	var stdout, stderr bytes.Buffer
@@ -100,7 +100,7 @@ func doRun(t *testing.T, cwd string, withFD bool, args ...string) runResult {
 // system gitignore (which on developer machines often includes things like
 // `.worktrees/` — exactly the path our tests want to assert is *not* covered).
 // PATH is preserved (we still need git).
-func hermeticEnv() []string {
+func hermeticEnv(t *testing.T) []string {
 	keep := []string{"PATH", "HOME", "USER", "TMPDIR", "LANG", "LC_ALL"}
 	env := []string{
 		"GIT_AUTHOR_NAME=git-wt-test",
@@ -114,6 +114,8 @@ func hermeticEnv() []string {
 		"GIT_CONFIG_GLOBAL=/dev/null",
 		"GIT_CONFIG_SYSTEM=/dev/null",
 		"GIT_CONFIG_NOSYSTEM=1",
+		// Global ignore is read from $XDG_CONFIG_HOME/git/ignore: empty dir.
+		"XDG_CONFIG_HOME=" + t.TempDir(),
 	}
 	for _, k := range keep {
 		if v, ok := os.LookupEnv(k); ok {

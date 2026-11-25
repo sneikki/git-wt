@@ -19,6 +19,9 @@ func hermeticGit(t *testing.T) {
 	t.Setenv("GIT_CONFIG_GLOBAL", "/dev/null")
 	t.Setenv("GIT_CONFIG_SYSTEM", "/dev/null")
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	// git reads the global ignore from $XDG_CONFIG_HOME/git/ignore; point it
+	// at an empty dir so the developer's ~/.config/git/ignore is not seen.
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 }
 
 // captureStderr runs fn with os.Stderr replaced by a pipe, returns the
@@ -66,6 +69,7 @@ func initRepo(t *testing.T, gitignoreLines ...string) string {
 		cmd.Env = append(os.Environ(),
 			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t",
 			"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t",
+			"XDG_CONFIG_HOME="+t.TempDir(),
 		)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
