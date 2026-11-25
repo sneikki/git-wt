@@ -102,3 +102,25 @@ func TestClean_GhMergedPRAtOtherShaKeeps(t *testing.T) {
 		t.Error("branch feat should be kept when the merged PR is at another commit")
 	}
 }
+
+// Without origin/HEAD the default branch is unknown, so the merged-PR scan
+// cannot tell main from a feature branch: a non-root worktree on main with a
+// merged PR at its tip is kept, and clean says why.
+func TestClean_UnknownDefaultBranchSkipsPRScan(t *testing.T) {
+	repo, _ := newRepoWithRemote(t)
+	mustGit(t, repo, "checkout", "-q", "-b", "other")
+	wtPath := filepath.Join(repo, ".worktrees", "main")
+	mustGit(t, repo, "worktree", "add", "-q", wtPath, "main")
+	mustGit(t, repo, "remote", "set-head", "origin", "-d")
+	tip := mustGit(t, repo, "rev-parse", "refs/heads/main")
+	t.Setenv("PATH", toolPath(t, fakeGh("main", tip)))
+
+	res := runWT(t, repo, "clean", "--non-interactive")
+	if res.ExitCode != 0 {
+		t.Fatalf("clean exit %d: %s", res.ExitCode, res.Stderr)
+	}
+	if !strings.Contains(res.Stderr, "default branch unknown") {
+		t.Errorf("stderr should say why the scan was skipped, got: %s", res.Stderr)
+	}
+	mustExist(t, wtPath)
+}

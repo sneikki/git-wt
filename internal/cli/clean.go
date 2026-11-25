@@ -24,15 +24,23 @@ var (
 var cleanCmd = &cobra.Command{
 	Use:   "clean",
 	Short: "Remove worktrees that no longer have a useful branch",
-	Long: "Remove worktrees in two cases:\n" +
+	Long: "Remove worktrees in three cases:\n" +
 		"  - orphaned: the local branch was deleted (or was never a branch)\n" +
 		"  - upstream-gone: the local branch's upstream is gone AND the branch is\n" +
 		"    integrated into origin's default branch (origin/HEAD). Integrated means\n" +
 		"    its tip is an ancestor of origin/HEAD, or merging it changes nothing\n" +
 		"    (squash merge), or a merged pull request exists at exactly this commit,\n" +
 		"    wherever it merged (checked with `gh`, optional: without gh such a branch is\n" +
-		"    kept). Anything else is kept and reported with its reason.\n\n" +
-		"Both checks run by default. Use --orphaned-only or --upstream-gone-only\n" +
+		"    kept). Anything else is kept and reported with its reason.\n" +
+		"  - merged PR: whatever the upstream state (still present, another branch,\n" +
+		"    none), the branch is removed when a pull request merged into origin's\n" +
+		"    default branch ended at exactly the branch's local tip (checked with `gh`;\n" +
+		"    without gh nothing is removed this way). Kept, and reported, when the tip\n" +
+		"    differs (commits after the merge), when the PR merged into another\n" +
+		"    branch, or when the branch is the base of any pull request (a parent or\n" +
+		"    long-lived branch). Skipped when origin's default branch is unknown, and\n" +
+		"    by --orphaned-only and --upstream-gone-only. Never deletes a remote branch.\n\n" +
+		"All checks run by default. Use --orphaned-only or --upstream-gone-only\n" +
 		"to narrow. `git worktree prune` runs first to clean up worktrees whose\n" +
 		"directory no longer exists. `git fetch --prune` runs before the\n" +
 		"upstream-gone check (skip with --no-fetch). To remove a kept worktree and\n" +
@@ -98,6 +106,9 @@ func runClean(ctx context.Context, flags cleanFlags) error {
 	}
 	targets, kept := splitByIntegration(targets, gitIntegration(ctx))
 	printKept(os.Stderr, kept)
+	if !flags.orphanedOnly && !flags.goneOnly {
+		targets = append(targets, scanMergedPRs(ctx, wts, repo, cur, targets, kept)...)
+	}
 	if len(targets) == 0 {
 		fmt.Fprintln(os.Stderr, "nothing to clean")
 		return nil

@@ -50,8 +50,8 @@ func splitByIntegration(targets []taggedTarget, integrated integrationFn) ([]tag
 func printKept(w io.Writer, kept []keptTarget) {
 	for _, k := range kept {
 		b := k.target.wt.Branch
-		_, _ = fmt.Fprintf(w, "skipping %s: upstream gone, %s. Insist: %s\n",
-			b, k.why, insistCommand(b))
+		_, _ = fmt.Fprintf(w, "skipping %s: %s, %s. Insist: %s\n",
+			b, k.target.reason, k.why, insistCommand(b))
 	}
 }
 
