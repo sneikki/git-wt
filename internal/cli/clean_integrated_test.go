@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/shhac/git-wt/internal/wt"
@@ -31,7 +33,7 @@ func TestSplitByIntegration(t *testing.T) {
 		t.Errorf("remove = %+v, want %+v", remove, want)
 	}
 	wantKept := []keptTarget{
-		{gone("lost"), "not merged into origin/HEAD and no merged PR at this tip"},
+		{gone("lost"), "not merged into origin/HEAD, and no merged PR at this exact commit"},
 		{gone("broken"), "integration check failed: boom"},
 	}
 	if !reflect.DeepEqual(kept, wantKept) {
@@ -39,6 +41,17 @@ func TestSplitByIntegration(t *testing.T) {
 	}
 	if want := []string{"landed", "lost", "broken"}; !reflect.DeepEqual(asked, want) {
 		t.Errorf("integration asked for %v, want %v (branch deleted must not be checked)", asked, want)
+	}
+}
+
+// The insist hint must end flag parsing before the branch, so a branch named
+// like a flag is not taken for one.
+func TestPrintKept_InsistHintEndsFlagsBeforeBranch(t *testing.T) {
+	var buf bytes.Buffer
+	printKept(&buf, []keptTarget{{taggedTarget{wt: wt.Worktree{Branch: "-x"}}, "why"}})
+	want := "git-wt rm --force --delete-branch --force-branch -- -x\n"
+	if !strings.HasSuffix(buf.String(), want) {
+		t.Errorf("hint = %q, want suffix %q", buf.String(), want)
 	}
 }
 

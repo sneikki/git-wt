@@ -29,14 +29,14 @@ var cleanCmd = &cobra.Command{
 		"  - upstream-gone: the local branch's upstream is gone AND the branch is\n" +
 		"    integrated into origin's default branch (origin/HEAD). Integrated means\n" +
 		"    its tip is an ancestor of origin/HEAD, or merging it changes nothing\n" +
-		"    (squash merge), or GitHub lists a merged pull request whose head is that\n" +
-		"    exact commit (checked with `gh`, optional: without gh such a branch is\n" +
+		"    (squash merge), or a merged pull request exists at exactly this commit,\n" +
+		"    wherever it merged (checked with `gh`, optional: without gh such a branch is\n" +
 		"    kept). Anything else is kept and reported with its reason.\n\n" +
 		"Both checks run by default. Use --orphaned-only or --upstream-gone-only\n" +
 		"to narrow. `git worktree prune` runs first to clean up worktrees whose\n" +
 		"directory no longer exists. `git fetch --prune` runs before the\n" +
 		"upstream-gone check (skip with --no-fetch). To remove a kept worktree and\n" +
-		"its branch anyway, use `git-wt rm --force --delete-branch --force-branch <branch>`.",
+		"its branch anyway, use `git-wt rm --force --delete-branch --force-branch -- <branch>`.",
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if cleanOrphanedOnly && cleanGoneOnly {

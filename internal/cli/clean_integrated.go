@@ -37,7 +37,7 @@ func splitByIntegration(targets []taggedTarget, integrated integrationFn) ([]tag
 		case err != nil:
 			kept = append(kept, keptTarget{t, "integration check failed: " + err.Error()})
 		case !ok:
-			kept = append(kept, keptTarget{t, "not merged into origin/HEAD and no merged PR at this tip"})
+			kept = append(kept, keptTarget{t, "not merged into origin/HEAD, and no merged PR at this exact commit"})
 		default:
 			remove = append(remove, t)
 		}
@@ -50,10 +50,16 @@ func splitByIntegration(targets []taggedTarget, integrated integrationFn) ([]tag
 func printKept(w io.Writer, kept []keptTarget) {
 	for _, k := range kept {
 		b := k.target.wt.Branch
-		_, _ = fmt.Fprintf(w,
-			"skipping %s: upstream gone, %s. Insist: git-wt rm --force --delete-branch --force-branch %s\n",
-			b, k.why, b)
+		_, _ = fmt.Fprintf(w, "skipping %s: upstream gone, %s. Insist: %s\n",
+			b, k.why, insistCommand(b))
 	}
+}
+
+// insistCommand is the rm invocation that removes a kept branch and its
+// worktree anyway. `--` ends the flags, so a branch named like a flag is still
+// read as a branch. Pure.
+func insistCommand(branch string) string {
+	return "git-wt rm --force --delete-branch --force-branch -- " + branch
 }
 
 // integratedBy composes the proofs: git first, GitHub only when git says no.

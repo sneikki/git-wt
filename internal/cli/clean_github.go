@@ -18,9 +18,10 @@ type mergedHeadsFn func(branch string) ([]string, error)
 // tipFn resolves a local branch to its tip commit.
 type tipFn func(branch string) (string, error)
 
-// prProof is the GitHub proof: integrated when a merged pull request's head
-// commit is exactly the branch tip. The sha equality is what protects a
-// commit made after the merge; PR state alone never counts.
+// prProof is the GitHub proof: integrated when a merged pull request exists at
+// exactly the branch tip, whatever its base (stacked PRs count, the commits
+// are on GitHub). The sha equality is what protects a commit made after the
+// merge; PR state alone never counts.
 func prProof(tip tipFn, heads mergedHeadsFn) integrationFn {
 	return func(branch string) (bool, error) {
 		t, err := tip(branch)
