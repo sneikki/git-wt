@@ -26,8 +26,8 @@ internal/
     root.go                        # global flags, Execute()
     list.go new.go add.go eject.go # the commands
     go_cmd.go rm.go rm_dirty.go rm_locked.go rm_remove.go
-    clean.go clean_scan.go clean_integrated.go clean_github.go clean_pr_scan.go
-                                     # clean: command / target scans / integration gate / gh proof
+    clean.go clean_scan.go clean_integrated.go clean_github.go clean_pr_scan.go clean_github_pr.go
+                                     # clean: command / target scans / integration gate / gh proof; merged-PR scan = a PR merged into the default branch at exactly the local tip (any upstream state), kept when the tip differs, the PR merged elsewhere, or the branch is any PR's base
     lock.go alias.go config_cmd.go completion.go
     emit.go                        # fd<N> / bare-mode path emission
     picker.go                      # adapts internal/picker to worktrees

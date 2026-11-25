@@ -31,11 +31,15 @@ var cleanCmd = &cobra.Command{
 		"    its tip is an ancestor of origin/HEAD, or merging it changes nothing\n" +
 		"    (squash merge), or a merged pull request exists at exactly this commit,\n" +
 		"    wherever it merged (checked with `gh`, optional: without gh such a branch is\n" +
-		"    kept). Anything else is kept and reported with its reason.\n\n" +
-		"  - merged PR: a merged pull request exists at exactly the branch's tip,\n" +
-		"    whatever its upstream state (still present, other branch, none). Needs gh;\n" +
-		"    never deletes a remote branch. Skipped by --orphaned-only and\n" +
-		"    --upstream-gone-only.\n\n" +
+		"    kept). Anything else is kept and reported with its reason.\n" +
+		"  - merged PR: whatever the upstream state (still present, another branch,\n" +
+		"    none), the branch is removed when a pull request merged into origin's\n" +
+		"    default branch ended at exactly the branch's local tip (checked with `gh`;\n" +
+		"    without gh nothing is removed this way). Kept, and reported, when the tip\n" +
+		"    differs (commits after the merge), when the PR merged into another\n" +
+		"    branch, or when the branch is the base of any pull request (a parent or\n" +
+		"    long-lived branch). Skipped when origin's default branch is unknown, and\n" +
+		"    by --orphaned-only and --upstream-gone-only. Never deletes a remote branch.\n\n" +
 		"All checks run by default. Use --orphaned-only or --upstream-gone-only\n" +
 		"to narrow. `git worktree prune` runs first to clean up worktrees whose\n" +
 		"directory no longer exists. `git fetch --prune` runs before the\n" +
