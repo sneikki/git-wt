@@ -143,3 +143,89 @@ func TestCanonicalPath_MissingTailUnderSymlink(t *testing.T) {
 		t.Errorf("canonicalPath = %q, want %q", got, want)
 	}
 }
+
+func TestCopyTree_ExistingFileKept(t *testing.T) {
+	root := t.TempDir()
+	src := filepath.Join(root, "src.env")
+	dst := filepath.Join(root, "dst.env")
+	if err := os.WriteFile(src, []byte("from-main"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dst, []byte("from-checkout"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := CopyTree(src, dst); err != nil {
+		t.Fatalf("CopyTree: %v", err)
+	}
+	if got, _ := os.ReadFile(dst); string(got) != "from-checkout" {
+		t.Errorf("dst = %q, want from-checkout (existing file must be kept)", got)
+	}
+}
+
+func TestCopyTree_ExistingSymlinkDirKept(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink semantics differ on Windows")
+	}
+	root := t.TempDir()
+	src := filepath.Join(root, "main", ".claude", "skills")
+	if err := os.MkdirAll(src, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "new.md"), []byte("new"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(root, "wt", ".agents", "skills")
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(root, "wt", ".claude", "skills")
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../../.agents/skills", dst); err != nil {
+		t.Fatal(err)
+	}
+	if err := CopyTree(src, dst); err != nil {
+		t.Fatalf("CopyTree: %v", err)
+	}
+	if info, _ := os.Lstat(dst); info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("dst must stay a symlink")
+	}
+	entries, err := os.ReadDir(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("symlink target got %d new entries, want 0", len(entries))
+	}
+}
+
+func TestCopyTree_MissingEntriesInRealDirCopied(t *testing.T) {
+	root := t.TempDir()
+	src := filepath.Join(root, "src")
+	dst := filepath.Join(root, "dst")
+	if err := os.MkdirAll(src, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "have.txt"), []byte("main"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dst, "have.txt"), []byte("checkout"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "missing.txt"), []byte("added"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := CopyTree(src, dst); err != nil {
+		t.Fatalf("CopyTree: %v", err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dst, "missing.txt")); string(got) != "added" {
+		t.Errorf("missing.txt = %q, want added", got)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dst, "have.txt")); string(got) != "checkout" {
+		t.Errorf("have.txt = %q, want checkout", got)
+	}
+}

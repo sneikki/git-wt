@@ -135,7 +135,8 @@ func checkoutWorktree(ctx context.Context, path string, ref *wt.AddRefResolution
 
 // copyConfigs loads the copy spec at specPath (falling back to built-in
 // defaults when the file is absent) and copies the matching paths from
-// repoRoot into dst.
+// repoRoot into dst. Existing files are never overwritten: only what dst
+// lacks is added.
 func copyConfigs(repoRoot, dst, specPath string) error {
 	spec, err := copyspec.Load(specPath)
 	if err != nil {
@@ -148,6 +149,9 @@ func copyConfigs(repoRoot, dst, specPath string) error {
 	for _, rel := range rels {
 		src := filepath.Join(repoRoot, rel)
 		out := filepath.Join(dst, rel)
+		if wt.UnderSymlink(dst, out) {
+			continue
+		}
 		if err := wt.CopyTree(src, out); err != nil {
 			return fmt.Errorf("copy %s: %w", rel, err)
 		}
