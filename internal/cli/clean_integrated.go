@@ -37,7 +37,7 @@ func splitByIntegration(targets []taggedTarget, integrated integrationFn) ([]tag
 		case err != nil:
 			kept = append(kept, keptTarget{t, "integration check failed: " + err.Error()})
 		case !ok:
-			kept = append(kept, keptTarget{t, "not merged into origin/HEAD"})
+			kept = append(kept, keptTarget{t, "not merged into origin/HEAD and no merged PR at this tip"})
 		default:
 			remove = append(remove, t)
 		}
@@ -56,16 +56,30 @@ func printKept(w io.Writer, kept []keptTarget) {
 	}
 }
 
-// gitIntegration is the git-backed integrationFn. origin/HEAD is resolved
+// integratedBy composes the proofs: git first, GitHub only when git says no.
+// An error from git is final, so an unresolvable origin/HEAD never reaches
+// GitHub. Pure: both proofs are injected.
+func integratedBy(gitProof, prProof integrationFn) integrationFn {
+	return func(branch string) (bool, error) {
+		ok, err := gitProof(branch)
+		if err != nil || ok {
+			return ok, err
+		}
+		return prProof(branch)
+	}
+}
+
+// gitIntegration is the integrationFn clean uses. origin/HEAD is resolved
 // once; when it does not resolve, every check fails with that reason.
 func gitIntegration(ctx context.Context) integrationFn {
 	head, headErr := originHead(ctx)
-	return func(branch string) (bool, error) {
+	gitProof := func(branch string) (bool, error) {
 		if headErr != nil {
 			return false, headErr
 		}
 		return branchIntegrated(ctx, branch, head)
 	}
+	return integratedBy(gitProof, prProof(tipOf(ctx), ghMergedHeads(ctx)))
 }
 
 // originHead resolves refs/remotes/origin/HEAD, as clean's fetch left it, to

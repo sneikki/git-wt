@@ -27,8 +27,11 @@ var cleanCmd = &cobra.Command{
 	Long: "Remove worktrees in two cases:\n" +
 		"  - orphaned: the local branch was deleted (or was never a branch)\n" +
 		"  - upstream-gone: the local branch's upstream is gone AND the branch is\n" +
-		"    integrated into origin's default branch (origin/HEAD). An unmerged one\n" +
-		"    is kept and reported with its reason.\n\n" +
+		"    integrated into origin's default branch (origin/HEAD). Integrated means\n" +
+		"    its tip is an ancestor of origin/HEAD, or merging it changes nothing\n" +
+		"    (squash merge), or GitHub lists a merged pull request whose head is that\n" +
+		"    exact commit (checked with `gh`, optional: without gh such a branch is\n" +
+		"    kept). Anything else is kept and reported with its reason.\n\n" +
 		"Both checks run by default. Use --orphaned-only or --upstream-gone-only\n" +
 		"to narrow. `git worktree prune` runs first to clean up worktrees whose\n" +
 		"directory no longer exists. `git fetch --prune` runs before the\n" +

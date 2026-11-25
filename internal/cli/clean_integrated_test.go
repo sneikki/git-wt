@@ -31,7 +31,7 @@ func TestSplitByIntegration(t *testing.T) {
 		t.Errorf("remove = %+v, want %+v", remove, want)
 	}
 	wantKept := []keptTarget{
-		{gone("lost"), "not merged into origin/HEAD"},
+		{gone("lost"), "not merged into origin/HEAD and no merged PR at this tip"},
 		{gone("broken"), "integration check failed: boom"},
 	}
 	if !reflect.DeepEqual(kept, wantKept) {
