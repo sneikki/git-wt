@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -85,7 +87,12 @@ func scanMergedPRs(ctx context.Context, wts []wt.Worktree, repo *wt.RepoInfo, cu
 	for _, k := range kept {
 		skip[k.target.wt.Path] = struct{}{}
 	}
-	env := prScanEnv{mainRoot: repo.MainRoot, defaultBranch: defaultBranchName(ctx), skip: skip}
+	def := defaultBranchName(ctx)
+	if def == "" {
+		fmt.Fprintln(os.Stderr, "merged-PR scan skipped: origin's default branch unknown (run git remote set-head origin --auto)")
+		return nil
+	}
+	env := prScanEnv{mainRoot: repo.MainRoot, defaultBranch: def, skip: skip}
 	if cur != nil {
 		env.curPath = cur.Path
 	}
