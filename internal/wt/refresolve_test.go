@@ -11,13 +11,15 @@ import (
 
 // hermeticGitEnv returns an environment that hides developer-side gitconfig
 // so test behaviour is reproducible.
-func hermeticGitEnv() []string {
+func hermeticGitEnv(t *testing.T) []string {
 	return append(os.Environ(),
 		"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t",
 		"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t",
 		"GIT_CONFIG_GLOBAL=/dev/null",
 		"GIT_CONFIG_SYSTEM=/dev/null",
 		"GIT_CONFIG_NOSYSTEM=1",
+		// Hide the developer's $XDG_CONFIG_HOME/git/ignore (global ignore).
+		"XDG_CONFIG_HOME="+t.TempDir(),
 	)
 }
 
@@ -27,7 +29,7 @@ func runGit(t *testing.T, dir string, args ...string) {
 	if dir != "" {
 		cmd.Dir = dir
 	}
-	cmd.Env = hermeticGitEnv()
+	cmd.Env = hermeticGitEnv(t)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
 	}
