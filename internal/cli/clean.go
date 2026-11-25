@@ -24,7 +24,7 @@ var (
 var cleanCmd = &cobra.Command{
 	Use:   "clean",
 	Short: "Remove worktrees that no longer have a useful branch",
-	Long: "Remove worktrees in two cases:\n" +
+	Long: "Remove worktrees in three cases:\n" +
 		"  - orphaned: the local branch was deleted (or was never a branch)\n" +
 		"  - upstream-gone: the local branch's upstream is gone AND the branch is\n" +
 		"    integrated into origin's default branch (origin/HEAD). Integrated means\n" +
@@ -32,7 +32,11 @@ var cleanCmd = &cobra.Command{
 		"    (squash merge), or a merged pull request exists at exactly this commit,\n" +
 		"    wherever it merged (checked with `gh`, optional: without gh such a branch is\n" +
 		"    kept). Anything else is kept and reported with its reason.\n\n" +
-		"Both checks run by default. Use --orphaned-only or --upstream-gone-only\n" +
+		"  - merged PR: a merged pull request exists at exactly the branch's tip,\n" +
+		"    whatever its upstream state (still present, other branch, none). Needs gh;\n" +
+		"    never deletes a remote branch. Skipped by --orphaned-only and\n" +
+		"    --upstream-gone-only.\n\n" +
+		"All checks run by default. Use --orphaned-only or --upstream-gone-only\n" +
 		"to narrow. `git worktree prune` runs first to clean up worktrees whose\n" +
 		"directory no longer exists. `git fetch --prune` runs before the\n" +
 		"upstream-gone check (skip with --no-fetch). To remove a kept worktree and\n" +
@@ -98,6 +102,9 @@ func runClean(ctx context.Context, flags cleanFlags) error {
 	}
 	targets, kept := splitByIntegration(targets, gitIntegration(ctx))
 	printKept(os.Stderr, kept)
+	if !flags.orphanedOnly && !flags.goneOnly {
+		targets = append(targets, scanMergedPRs(ctx, wts, repo, cur, targets, kept)...)
+	}
 	if len(targets) == 0 {
 		fmt.Fprintln(os.Stderr, "nothing to clean")
 		return nil
