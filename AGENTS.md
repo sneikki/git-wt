@@ -25,7 +25,9 @@ internal/
   cli/                             # cobra subcommands + per-command helpers
     root.go                        # global flags, Execute()
     list.go new.go add.go eject.go # the commands
-    go_cmd.go rm.go rm_dirty.go rm_locked.go rm_remove.go clean.go
+    go_cmd.go rm.go rm_dirty.go rm_locked.go rm_remove.go
+    clean.go clean_scan.go clean_integrated.go clean_github.go
+                                     # clean: command / target scans / integration gate / gh proof
     lock.go alias.go config_cmd.go completion.go
     emit.go                        # fd<N> / bare-mode path emission
     picker.go                      # adapts internal/picker to worktrees
@@ -77,7 +79,7 @@ time because bash parses redirect operators before variable expansion.
 | `go [branch]` | Navigate. Direct branch lookup with unique-suffix fallback (`auth` → `paul/auth`). Interactive picker if no arg. |
 | `list` (`ls`) | Print the table. Columns: marker, branch, location (`#name` inside `.worktrees/`, rel-to-repo elsewhere, abs outside), mtime; locked rows add lock age + truncated reason (`lockTag`, shared with the pickers). Lock age is the mtime of `<commonDir>/worktrees/<id>/locked`, mapped back via each admin dir's `gitdir` file (`wt.attachLockTimes`). |
 | `lock [branch...]` / `unlock [branch...]` | Thin wrappers over `git worktree lock/unlock` with gwt name resolution (`findNamedWorktree`: branch, suffix, trees-dir leaf) and a multi-select over the worktrees whose state would change. Already in the target state is a note, not an error. No PID/staleness detection — the reason is shown verbatim and the user judges. |
-| `clean` | Remove worktrees whose local branch is gone OR whose upstream is gone. Both run by default; narrow with `--orphaned-only` / `--upstream-gone-only`. Dirty and locked worktrees are reported and skipped, never prompted for — it's a bulk sweep over worktrees the user never named. |
+| `clean` | Remove worktrees whose local branch is gone OR whose upstream is gone. Both run by default; narrow with `--orphaned-only` / `--upstream-gone-only`. An upstream-gone worktree is removed (with its branch) only when its branch is integrated into origin's default branch (`refs/remotes/origin/HEAD`, never local main): tip is an ancestor of it, or `git merge-tree --write-tree` yields its tree (squash merge); else, third and last, `gh pr list --head <branch> --state merged` lists a merged PR at exactly the tip (`headRefOid` equals it, whatever the PR's base: stacked PRs count, the commits are on GitHub; PR state alone never counts; gh is optional). Not integrated, a failing check (incl. gh missing, unauthenticated, no GitHub remote), or an unresolvable origin/HEAD: kept, reported on stderr with the reason and the `git-wt rm --force --delete-branch --force-branch -- <branch>` command. `--dry-run` shows the same kept list. Dirty and locked worktrees are reported and skipped, never prompted for — it's a bulk sweep over worktrees the user never named. |
 | `alias <name>` | Print a POSIX shell function. Configurable fd (`--fd N`, range 3-9), baked flags (`--plain`, `-n`, `--debug`), and an optional tab-completion binding (default on; suppress with `--no-completion`). |
 | `completion <shell>` | Print a Cobra-generated completion script for bash/zsh/fish/powershell. Dynamic argument completion via `ValidArgsFunction` on `go` / `rm` / `add` / `lock` / `unlock`. |
 | `config [<key> [<value>]]` | Show/set persistent settings stored in `git config wt.*`. List bare; show one key with template + resolved value; set with `<key> <value>` (default `--local`, `--global` flag for user-wide); `--unset` to remove. Validates type and template vars at set time. |
