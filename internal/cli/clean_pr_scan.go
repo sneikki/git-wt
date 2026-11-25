@@ -11,8 +11,8 @@ import (
 	"github.com/shhac/git-wt/internal/wt"
 )
 
-// reasonMergedPR tags a target picked because a merged pull request sits at
-// exactly the branch tip, whatever the branch's upstream state.
+// reasonMergedPR tags a target picked because a pull request merged into the
+// default branch sits at exactly the branch tip, whatever the upstream state.
 const reasonMergedPR = "merged PR at tip"
 
 // prScanConcurrency bounds the parallel gh calls of the scan.
@@ -39,16 +39,64 @@ func (e prScanEnv) eligible(w wt.Worktree) bool {
 	return !seen
 }
 
-// findMergedPRWorktrees returns eligible worktrees whose branch proof holds,
-// in input order. A proof error is no proof. gh calls run in parallel.
-func findMergedPRWorktrees(wts []wt.Worktree, env prScanEnv, proof integrationFn) []taggedTarget {
+// prVerdict is the scan's answer for one branch: pick it, keep it with a
+// printed reason, or say nothing (no proof).
+type prVerdict struct {
+	pick bool
+	keep string
+}
+
+// prVerdictFn decides one branch. Errors are folded into the verdict.
+type prVerdictFn func(branch string) prVerdict
+
+// mergedPRVerdict proves a branch by a PR merged into base at exactly the
+// tip, then fails closed when the branch is itself the base of any PR (a
+// long-lived or parent branch). isBase is asked only for proven branches.
+func mergedPRVerdict(tip tipFn, prs mergedPRsFn, isBase isBaseFn, base string) prVerdictFn {
+	return func(branch string) prVerdict {
+		t, err := tip(branch)
+		if err != nil {
+			return prVerdict{}
+		}
+		found, err := prs(branch)
+		if err != nil || !hasMergedAt(found, t, base) {
+			return prVerdict{}
+		}
+		isParent, err := isBase(branch)
+		switch {
+		case err != nil:
+			return prVerdict{keep: "could not check whether it is the base of a pull request: " + err.Error()}
+		case isParent:
+			return prVerdict{keep: "branch is the base of a pull request"}
+		}
+		return prVerdict{pick: true}
+	}
+}
+
+// hasMergedAt reports whether some PR was merged into base at commit tip.
+// An empty tip matches nothing. Pure.
+func hasMergedAt(prs []mergedPR, tip, base string) bool {
+	if tip == "" {
+		return false
+	}
+	for _, p := range prs {
+		if p.HeadOid == tip && p.Base == base {
+			return true
+		}
+	}
+	return false
+}
+
+// findMergedPRWorktrees returns the picked worktrees and the kept ones with
+// reasons, in input order. gh calls run in parallel.
+func findMergedPRWorktrees(wts []wt.Worktree, env prScanEnv, decide prVerdictFn) ([]taggedTarget, []keptTarget) {
 	var cands []wt.Worktree
 	for _, w := range wts {
 		if env.eligible(w) {
 			cands = append(cands, w)
 		}
 	}
-	ok := make([]bool, len(cands))
+	verdicts := make([]prVerdict, len(cands))
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, prScanConcurrency)
 	for i, w := range cands {
@@ -57,18 +105,22 @@ func findMergedPRWorktrees(wts []wt.Worktree, env prScanEnv, proof integrationFn
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			yes, err := proof(w.Branch)
-			ok[i] = err == nil && yes
+			verdicts[i] = decide(w.Branch)
 		}()
 	}
 	wg.Wait()
 	var out []taggedTarget
+	var kept []keptTarget
 	for i, w := range cands {
-		if ok[i] {
-			out = append(out, taggedTarget{wt: w, reason: reasonMergedPR})
+		t := taggedTarget{wt: w, reason: reasonMergedPR}
+		switch {
+		case verdicts[i].pick:
+			out = append(out, t)
+		case verdicts[i].keep != "":
+			kept = append(kept, keptTarget{t, verdicts[i].keep})
 		}
 	}
-	return out
+	return out, kept
 }
 
 // defaultBranchName is origin's default branch short name, "" when unknown.
@@ -80,8 +132,9 @@ func defaultBranchName(ctx context.Context) string {
 	return strings.TrimPrefix(ref, "origin/")
 }
 
-// scanMergedPRs finds worktrees with a merged PR at their tip among those
-// not already targeted or kept by the other scans.
+// scanMergedPRs finds worktrees with a PR merged into the default branch at
+// their tip among those not already targeted or kept by the other scans, and
+// prints the ones it keeps. Without a known default branch it does nothing.
 func scanMergedPRs(ctx context.Context, wts []wt.Worktree, repo *wt.RepoInfo, cur *wt.Worktree, targets []taggedTarget, kept []keptTarget) []taggedTarget {
 	skip := pathSet(targets)
 	for _, k := range kept {
@@ -96,5 +149,8 @@ func scanMergedPRs(ctx context.Context, wts []wt.Worktree, repo *wt.RepoInfo, cu
 	if cur != nil {
 		env.curPath = cur.Path
 	}
-	return findMergedPRWorktrees(wts, env, prProof(tipOf(ctx), ghMergedHeads(ctx)))
+	decide := mergedPRVerdict(tipOf(ctx), ghMergedPRs(ctx), ghIsBase(ctx), def)
+	picked, keptHere := findMergedPRWorktrees(wts, env, decide)
+	printKept(os.Stderr, keptHere)
+	return picked
 }

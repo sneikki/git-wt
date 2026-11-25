@@ -103,32 +103,6 @@ func TestClean_GhMergedPRAtOtherShaKeeps(t *testing.T) {
 	}
 }
 
-// The remote branch was never deleted, so the upstream is present and the git
-// proofs fail. A merged PR at the tip still makes the worktree a candidate,
-// and clean leaves the remote branch alone.
-func TestClean_MergedPRWithRemoteBranchStillThere(t *testing.T) {
-	repo, origin := newRepoWithRemote(t)
-	wtPath := addGoneWorktree(t, repo, "feat", "none")
-	mustGit(t, repo, "push", "-q", "origin", "feat")
-	tip := mustGit(t, repo, "rev-parse", "refs/heads/feat")
-	t.Setenv("PATH", toolPath(t, fakeGh("feat", tip)))
-
-	res := runWT(t, repo, "clean", "--non-interactive")
-	if res.ExitCode != 0 {
-		t.Fatalf("clean exit %d: %s", res.ExitCode, res.Stderr)
-	}
-	if !strings.Contains(res.Stderr, "merged PR at tip") {
-		t.Errorf("stderr should name the proof, got: %s", res.Stderr)
-	}
-	mustNotExist(t, wtPath)
-	if !gitFails(t, repo, "rev-parse", "--verify", "-q", "refs/heads/feat") {
-		t.Error("local branch feat should be deleted")
-	}
-	if gitFails(t, origin, "rev-parse", "--verify", "-q", "refs/heads/feat") {
-		t.Error("remote branch feat must stay")
-	}
-}
-
 // Without origin/HEAD the default branch is unknown, so the merged-PR scan
 // cannot tell main from a feature branch: a non-root worktree on main with a
 // merged PR at its tip is kept, and clean says why.

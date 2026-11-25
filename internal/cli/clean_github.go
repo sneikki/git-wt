@@ -3,10 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"os/exec"
-	"strings"
 
 	"github.com/shhac/git-wt/internal/git"
 )
@@ -70,15 +67,10 @@ func parseHeadOids(data []byte) ([]string, error) {
 // without a GitHub remote is an error, and the caller keeps the branch.
 func ghMergedHeads(ctx context.Context) mergedHeadsFn {
 	return func(branch string) ([]string, error) {
-		cmd := exec.CommandContext(ctx, "gh", "pr", "list",
+		out, err := ghRun(ctx, "pr", "list",
 			"--head", branch, "--state", "merged", "--json", "headRefOid", "--limit", "100")
-		out, err := cmd.Output()
 		if err != nil {
-			var ee *exec.ExitError
-			if errors.As(err, &ee) {
-				return nil, fmt.Errorf("gh pr list: %s", strings.TrimSpace(string(ee.Stderr)))
-			}
-			return nil, fmt.Errorf("gh pr list: %w", err)
+			return nil, err
 		}
 		return parseHeadOids(out)
 	}
