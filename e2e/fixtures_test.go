@@ -25,8 +25,8 @@ func newRepo(t *testing.T) string {
 	return repo
 }
 
-// newRepoWithRemote sets up a fresh repo + a bare origin remote, with main pushed.
-// Returns (repo, originBare).
+// newRepoWithRemote sets up a fresh repo + a bare origin remote, with main pushed
+// and origin/HEAD set as a clone would have it. Returns (repo, originBare).
 func newRepoWithRemote(t *testing.T) (string, string) {
 	t.Helper()
 	repo := newRepo(t)
@@ -34,6 +34,7 @@ func newRepoWithRemote(t *testing.T) (string, string) {
 	mustGit(t, "", "init", "-q", "--bare", origin)
 	mustGit(t, repo, "remote", "add", "origin", origin)
 	mustGit(t, repo, "push", "-q", "-u", "origin", "main")
+	mustGit(t, repo, "remote", "set-head", "origin", "main")
 	return repo, origin
 }
 
