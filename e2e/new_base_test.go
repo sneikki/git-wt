@@ -47,7 +47,7 @@ func gitFails(t *testing.T, dir string, args ...string) bool {
 	t.Helper()
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
-	cmd.Env = hermeticEnv()
+	cmd.Env = hermeticEnv(t)
 	return cmd.Run() != nil
 }
 

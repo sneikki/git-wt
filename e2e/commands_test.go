@@ -396,7 +396,7 @@ func TestAlias_WrapperCdWorksWithLeadingGlobalFlag(t *testing.T) {
 			script := aliasRes.Stdout + "\n" + tc.invoke + "\npwd\n"
 			cmd := exec.Command("bash", "-c", script)
 			cmd.Dir = repo
-			cmd.Env = hermeticEnv()
+			cmd.Env = hermeticEnv(t)
 			var stdout, stderr bytes.Buffer
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr

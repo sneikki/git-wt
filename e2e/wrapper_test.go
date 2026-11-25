@@ -44,7 +44,7 @@ func runUnderWrapper(t *testing.T, shell, repo, dir, script string) (string, str
 	}
 	cmd := exec.Command(shell, args...)
 	cmd.Dir = dir
-	cmd.Env = hermeticEnv()
+	cmd.Env = hermeticEnv(t)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

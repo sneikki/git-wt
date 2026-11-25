@@ -43,7 +43,7 @@ func mustGit(t *testing.T, dir string, args ...string) string {
 	if dir != "" {
 		cmd.Dir = dir
 	}
-	cmd.Env = hermeticEnv()
+	cmd.Env = hermeticEnv(t)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
