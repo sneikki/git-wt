@@ -162,7 +162,8 @@ worktree into the new one. The list is controlled by
 gitignore-ish: `#` comments, glob patterns, `!`-prefixed exclusions. When
 the file is absent, a built-in default copies `.env*`, `.claude/`,
 `CLAUDE.local.md`, `.ai-cache/`. See `.git-wt-copy-files.example` in the
-repo for the schema.
+repo for the schema. Existing files are never overwritten: only paths the
+new worktree lacks are copied.
 
 ### Configuration
 
